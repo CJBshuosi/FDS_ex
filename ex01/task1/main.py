@@ -92,10 +92,10 @@ def causally_precedes(pre_node_vector, post_node_vector):
     less = True
     strickly_less = False
     for i, j in zip(pre_node_vector, post_node_vector):
-        if i < j:
+        if i > j: # ">" instead of "<" as we are looking for precedence
             less = False
             break
-        if i > j:
+        if i < j: # "<" instead of ">"
             strickly_less = True
     return less and strickly_less
 
@@ -104,7 +104,8 @@ def build_edges(event_nodes, vector_clocks):
     for pre_index, pre_node in enumerate(event_nodes):
         for post_index, post_node in enumerate(event_nodes):
             if pre_index != post_index and causally_precedes(vector_clocks[pre_node], vector_clocks[post_node]):
-                edges[pre_node].add(post_node)
+                # edges[pre_node].add(post_node)
+                edges[post_node].add(pre_node) # This instead of comment above to have direction from child to parent
     return edges
 
 def create_graph(edges):
