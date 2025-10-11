@@ -1,19 +1,56 @@
-
+"""
+Implement causal length set (CLS) with add, remove, contains and mutual_sync methods.
+In the set we represent each item with a counter. The counter represents if the item is in the set or not:
+    counter is even -> item is not in the set
+    counter is odd -> item is in the set
+"""
 class CLS:
+    # We store items in a dictionary with counters
     def __init__(self):
-        self.items = set()
+        self.cart = {}
 
+    """
+    Add item to the set
+    If item is not in the set, add it with counter 1
+    If item is in the set with even counter, increment counter by 1 (making it odd -> in the set now)
+    """
     def add(self, item):
-        pass
+        if item not in self.cart:
+            self.cart[item] = 1
+        elif self.cart[item] % 2 == 0:
+            self.cart[item] += 1
 
+    """
+    Remove item from the set
+    If item is in the set with odd counter, increment counter by 1 (making it even -> not in the set anymore)
+    """
     def remove(self, item):
-        pass
+        if item in self.cart and self.cart[item] % 2 == 1:
+            self.cart[item] += 1
 
+    """
+    Check if item is in the set
+    If item is in the set with odd counter, return True
+    """
     def contains(self, item):
-        pass
+        return item in self.cart and self.cart[item] % 2 == 1
 
-    def mutual_sync(self, other_lists):
-        pass
+    """
+    Synchronize all CLS 
+    """
+    def mutual_sync(self, other_carts):
+        mutual_cart = self.cart.copy()
+        for other in other_carts:
+            for item, counter in other.cart.items():
+                if item in mutual_cart:
+                    mutual_cart[item] = max(mutual_cart[item], counter)
+                else:
+                    mutual_cart[item] = counter
+        
+        self.cart = mutual_cart
+        for other in other_carts:
+            other.cart = mutual_cart
+
 
 if __name__ == "__main__":
     # Test cases from exercise description
@@ -36,4 +73,3 @@ if __name__ == "__main__":
     alice_list.mutual_sync([bob_list])
 
     print("Bob's list contains 'Potato'?", bob_list.contains('Potato'))
-    pass
