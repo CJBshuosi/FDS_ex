@@ -115,7 +115,7 @@ def initialize(N):
 
 if __name__ == "__main__":
     os.system('clear')
-    N = 10
+    N = 3
     initialize(N)
     time.sleep(6) # Let nodes start up and elect a leader
     print('actions: state, crash, recover')
