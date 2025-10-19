@@ -37,7 +37,7 @@ class Node:
             
             # Check for heartbeat. If time since last heartbeat > 1s, switch to candidate state
             if self.working and self.state == 'follower' and time.time() - self.last_heartbeat > 1:
-                if time.time() - self.resigned > 10:
+                if time.time() - self.resigned > 5: # prevent immediate re-candidacy
                     self.votes = {}
                     self.voted = False
                     self.leader = None
@@ -52,7 +52,6 @@ class Node:
                         self.broadcast('heartbeat', self.id)
                 else:
                     time.sleep(random.uniform(1, 3)) # wait for random time between 1s and 3s
-                    # Add simultaneous candidacy detection to prevent overlapping elections 
                     for msg_type, value in buffer[self.id]:
                         if msg_type == 'candidacy' and value != self.id:
                             self.state = 'follower'
@@ -63,8 +62,7 @@ class Node:
                         self.broadcast('candidacy', self.id)
 
             # If leader, send heartbeat every 0.5s
-            if self.working and self.state == 'leader':
-                time.sleep(0.5) # leader sends heartbeat every 0.5s
+            if self.working and self.state == 'leader' and time.time() - self.last_heartbeat >= 0.5:
                 self.broadcast('heartbeat', self.id)
             time.sleep(0.1)
 
@@ -76,7 +74,7 @@ class Node:
     def crash(self):
         if self.working:
             self.working = False
-            self.state = 'follower' # reset to follower state
+            self.state = 'crashed' # set to crashed state
             buffer[self.id] = []
     
     def recover(self):
@@ -88,10 +86,11 @@ class Node:
     def deliver(self, msg_type, value):
         if msg_type == 'heartbeat':
             self.last_heartbeat = time.time()
-            if self.state == 'candidate': 
-                self.state = 'follower' # Leader exists -> stop election process
+            if self.state == 'candidate' or self.leader == None: 
+                self.state = 'follower'
                 print(f'node {self.id} got a heartbeat and followed node {value}')
                 self.leader = value
+                self.election = False
         elif msg_type == 'candidacy':
             if not self.voted:
                 self.broadcast('vote', (self.id, value)) # vote for candidate
@@ -103,6 +102,13 @@ class Node:
                 self.votes[candidate_id] += 1
             else:
                 self.votes[candidate_id] = 1
+            """"There is multiple ways to determine the leader. Here each node counts votes for themselves and determines leader that way, 
+            but it would also be possible to have the candidate count votes and announce themselves as leader through heartbeat.
+            Candidate is only one who counts:
+            if self.votes[candidate_id] > self.count_active_nodes() // 2 and self.leader == None and self.state == 'candidate':
+            
+            The way we coded it is that each node counts votes and can determine leader by themselves. See below:
+            """
             if self.votes[candidate_id] > self.count_active_nodes() // 2 and self.leader == None:
                 print(f'node {self.id} detected node {candidate_id} as leader')
                 self.leader = candidate_id
