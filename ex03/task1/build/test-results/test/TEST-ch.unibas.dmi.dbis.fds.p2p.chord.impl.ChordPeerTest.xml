@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="ch.unibas.dmi.dbis.fds.p2p.chord.impl.ChordPeerTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2025-11-02T08:12:40" hostname="BoyudeAir" time="0.026">
+  <properties/>
+  <testcase name="testFingerTableNodeZero()" classname="ch.unibas.dmi.dbis.fds.p2p.chord.impl.ChordPeerTest" time="0.019"/>
+  <testcase name="testJoinOnThree()" classname="ch.unibas.dmi.dbis.fds.p2p.chord.impl.ChordPeerTest" time="0.001"/>
+  <testcase name="testFingerTableNodeOne()" classname="ch.unibas.dmi.dbis.fds.p2p.chord.impl.ChordPeerTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
