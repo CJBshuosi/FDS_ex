@@ -73,7 +73,7 @@ public abstract class AbstractOracleXaBank {
 
 
     public XAConnection openConnection( final String connectionString, final String dbmsUsername, final String dbmsPassword ) throws SQLException {
-        final OracleXADataSource dataSource = new OracleXADataSource();
+        final OracleXADataSource dataSource = new OracleXADataSource(); // Use OracleXADataSource to create a connection that supports distributed transactions.
         dataSource.setURL( connectionString );
         dataSource.setUser( dbmsUsername );
         dataSource.setPassword( dbmsPassword );
@@ -104,24 +104,37 @@ public abstract class AbstractOracleXaBank {
         return xaResource;
     }
 
-
-    public Xid startTransaction() throws XAException {
+    /**
+     * XA lifecycle
+     * 1. Start transaction -> this.xaResource.start()
+     * 2. execute SQL statements -> withdraw or deposit
+     * 3. End transaction -> this.xaResource.end()
+     * 3. Prepare transaction -> this.xaResource.prepare()
+     * 4. Commit transaction -> this.xaResource.commit()
+     *
+     */
+    public Xid startTransaction() throws XAException {  // I am a TM --> Start a new transaction, not join an existing one 
         final Xid xid = this.getXid();
-        this.xaResource.start( xid, XAResource.TMNOFLAGS );
+
+        // TODO: your turn ;-)
+        this.xaResource.start(xid, XAResource.TMNOFLAGS);
         return xid;
     }
 
 
-    public Xid startTransaction( final Xid globalTransactionId ) throws XAException {
+    public Xid startTransaction( final Xid globalTransactionId ) throws XAException {   // I am a RM --> Join an existing transaction
         final Xid xid = this.getXid( globalTransactionId );
-        this.xaResource.start( xid, XAResource.TMNOFLAGS );
+
+        // TODO: your turn ;-)
+        this.xaResource.start(xid, XAResource.TMNOFLAGS);
         return xid;
     }
-
 
     public void endTransaction( final Xid transactionId, final boolean rollback ) throws XAException {
-        int flags = rollback ? XAResource.TMFAIL : XAResource.TMSUCCESS;
-        this.xaResource.end( transactionId, flags );
+        // TODO: your turn ;-)
+        // TMFAIL: Transaction has failed. TMSUCCESS: Transaction has successfully completed.
+        int flags = rollback ? XAResource.TMFAIL : XAResource.TMSUCCESS; 
+        this.xaResource.end(transactionId, flags);
     }
 
 

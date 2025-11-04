@@ -17,9 +17,8 @@ ext.platform = osdetector.os == 'osx' ? 'mac' : osdetector.os == 'windows' ? 'wi
 if (osdetector.arch == "aarch_64") {
     platform += "-aarch64"
 }
-
-sourceCompatibility = 1.17
-targetCompatibility = 1.17
+sourceCompatibility = 21
+targetCompatibility = 21
 
 repositories {
     mavenCentral()

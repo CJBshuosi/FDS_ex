@@ -160,6 +160,9 @@ public void joinAndUpdate(ChordNode nprime) {
    * Defined in [1], Figure 6
    *
    * @param nprime Arbitrary {@link ChordNode} that is part of the network.
+   * 1. Find the successor using n'
+   * 2. Insert into the cycle and update the predecessor
+   * 3. Smartly fill the finger table (copy if possible)
    */
   private void initFingerTable(ChordNode nprime) {
     /* TODO: Implementation required. */

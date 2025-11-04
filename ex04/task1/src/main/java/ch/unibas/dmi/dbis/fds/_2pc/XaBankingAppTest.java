@@ -29,8 +29,8 @@ public class XaBankingAppTest {
     private static final Logger LOG = Logger.getLogger( XaBankingAppTest.class.getName() );
 
     /** TODO 1 of 2: Change login credentials to the ones you received via mail. */
-    private static final String DBMS_USERNAME = "Your username";
-    private static final String DBMS_PASSWORD = "Your password";
+    private static final String DBMS_USERNAME = "db_28";
+    private static final String DBMS_PASSWORD = "KBTzY8w4";
 
 
     static {
@@ -70,6 +70,10 @@ public class XaBankingAppTest {
             try {
                 this.bank = new OracleXaBank( BIC, jdbcConnectionString, dbmsUsername, dbmsPassword );
             } catch ( SQLException ex ) {
+                System.err.println("ERROR creating bank " + BIC + ":");
+                System.err.println("Connection String: " + jdbcConnectionString);
+                System.err.println("Username: " + dbmsUsername);
+                ex.printStackTrace();
                 throw new InternalError( "Exception while creating the bank object.", ex );
             }
         }

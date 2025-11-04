@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+Copyright: Databases and Information Systems Group, Department Mathemati
+ cs and Computer Science, University of Basel, Switzerland
+Version: task ':jar' property 'archiveVersion'
+Main-Class: ch.unibas.dmi.dbis.fds._2pc.XaBankingAppTest
+

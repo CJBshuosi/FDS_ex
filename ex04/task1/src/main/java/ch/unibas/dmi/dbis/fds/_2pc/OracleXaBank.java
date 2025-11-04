@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+
 import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
@@ -25,76 +26,74 @@ public class OracleXaBank extends AbstractOracleXaBank {
 
     @Override
     public float getBalance( final String iban ) throws SQLException {
-        try ( Connection c = this.getXaConnection().getConnection() ) {
-            c.setAutoCommit( false );
+        // TODO: your turn ;-)
+        try ( Connection c = this.getXaConnection().getConnection()) {  // Get a connection from the XAConnection pool
+            c.setAutoCommit(false);
             final Statement statement = c.createStatement();
-            final ResultSet resultSet = statement.executeQuery( "SELECT balance FROM account WHERE iban = '" + iban + "'" );
-
-            if ( resultSet.next() ) {
-                return resultSet.getFloat( "balance" );
+            final ResultSet result  = statement.executeQuery("SELECT balance FROM account WHERE iban = '" + iban + "'");
+            if (result.next()) {
+                return result.getFloat("balance");
             }
-
-            throw new SQLException( "Account with IBAN " + iban + " not found" );
+            throw new SQLException("Account with IBAN " + iban + " not found."); 
         }
+        
     }
-
 
     @Override
     public void transfer( final AbstractOracleXaBank TO_BANK, final String ibanFrom, final String ibanTo, final float value ) {
+        // TODO: your turn ;-)
         Xid xidFrom = null;
         Xid xidTo = null;
-
         try {
-            // Phase 1: Start transactions on both banks
+            // step 1: Start transactions on both banks
             xidFrom = this.startTransaction();
-            xidTo = TO_BANK.startTransaction( xidFrom );
-
-            // Phase 2: Execute withdraw on source bank
-            try ( Connection cFrom = this.getXaConnection().getConnection() ) {
-                final Statement stmtFrom = cFrom.createStatement();
-                stmtFrom.executeUpdate( "UPDATE account SET balance = balance - " + value + " WHERE iban = '" + ibanFrom + "'" );
+            xidTo = TO_BANK.startTransaction(xidFrom);
+            // step 2: Withdraw from source bank
+            try( Connection c_from = this.getXaConnection().getConnection() ){
+                c_from.setAutoCommit(false);
+                final Statement statement = c_from.createStatement();
+                statement.executeUpdate("UPDATE account SET balance = balance - " + value + " WHERE iban = '" + ibanFrom + "'");
             }
-
-            // Phase 3: Execute deposit on destination bank
-            try ( Connection cTo = TO_BANK.getXaConnection().getConnection() ) {
-                final Statement stmtTo = cTo.createStatement();
-                stmtTo.executeUpdate( "UPDATE account SET balance = balance + " + value + " WHERE iban = '" + ibanTo + "'" );
+            // step 3: Deposit on target bank
+            try( Connection c_to = TO_BANK.getXaConnection().getConnection()) {
+                c_to.setAutoCommit(false);
+                final Statement statement = c_to.createStatement();
+                statement.executeUpdate("UPDATE account SET balance = balance + " + value + " WHERE iban = '" + ibanTo + "'");
             }
-
-            // Phase 4: End transactions (prepare phase)
-            this.endTransaction( xidFrom, false );
-            TO_BANK.endTransaction( xidTo, false );
-
-            // Phase 5: Prepare phase - check if both can commit
-            int prepareFrom = this.getXaResource().prepare( xidFrom );
-            int prepareTo = TO_BANK.getXaResource().prepare( xidTo );
-
-            // Phase 6: Commit phase - commit if both prepared successfully
-            if ( prepareFrom == XAResource.XA_OK && prepareTo == XAResource.XA_OK ) {
-                this.getXaResource().commit( xidFrom, false );
-                TO_BANK.getXaResource().commit( xidTo, false );
+            // step 4: End transactions
+            this.endTransaction(xidFrom, false);
+            TO_BANK.endTransaction(xidTo, false);
+            // step 5: Prepare -- check if both can commit
+            int prepareFrom = this.getXaResource().prepare(xidFrom);
+            int prepareTo = TO_BANK.getXaResource().prepare(xidTo);
+            
+            // step 6: Commit
+            if(prepareFrom == XAResource.XA_OK && prepareTo == XAResource.XA_OK) {
+                this.getXaResource().commit(xidFrom, false);
+                TO_BANK.getXaResource().commit(xidTo, false);
+                System.out.println("Transaction Successful.");
             } else {
-                // Rollback if any prepare failed
-                this.getXaResource().rollback( xidFrom );
-                TO_BANK.getXaResource().rollback( xidTo );
-                throw new SQLException( "Transaction prepare failed" );
+                this.getXaResource().rollback(xidFrom);
+                TO_BANK.getXaResource().rollback(xidTo);
+                throw new SQLException("Prepare failed.");
             }
-
-        } catch ( Exception e ) {
-            // Rollback on any error
+    
+        } catch( Exception e) {
+            // Rollback on both banks
             try {
-                if ( xidFrom != null ) {
-                    this.endTransaction( xidFrom, true );
-                    this.getXaResource().rollback( xidFrom );
+                if(xidFrom != null) {
+                    this.endTransaction(xidFrom, true);
+                    this.getXaResource().rollback(xidFrom);
                 }
-                if ( xidTo != null ) {
-                    TO_BANK.endTransaction( xidTo, true );
-                    TO_BANK.getXaResource().rollback( xidTo );
+                if( xidTo != null) {
+                    TO_BANK.endTransaction(xidTo, true);
+                    TO_BANK.getXaResource().rollback(xidTo);
                 }
-            } catch ( XAException xaEx ) {
-                xaEx.printStackTrace();
+                System.out.println("Transaction failed. Rollback successful.");
+            } catch (Exception e2) {
+                e2.printStackTrace();
             }
-            throw new RuntimeException( "Transfer failed: " + e.getMessage(), e );
+            throw new RuntimeException(e);
         }
     }
 }
