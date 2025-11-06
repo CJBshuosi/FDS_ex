@@ -8,6 +8,8 @@ import org.junit.platform.launcher.core.LauncherFactory;
 import org.junit.platform.launcher.listeners.SummaryGeneratingListener;
 import org.junit.platform.launcher.listeners.TestExecutionSummary;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -17,6 +19,7 @@ import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
 
 /**
@@ -70,10 +73,6 @@ public class XaBankingAppTest {
             try {
                 this.bank = new OracleXaBank( BIC, jdbcConnectionString, dbmsUsername, dbmsPassword );
             } catch ( SQLException ex ) {
-                System.err.println("ERROR creating bank " + BIC + ":");
-                System.err.println("Connection String: " + jdbcConnectionString);
-                System.err.println("Username: " + dbmsUsername);
-                ex.printStackTrace();
                 throw new InternalError( "Exception while creating the bank object.", ex );
             }
         }
@@ -164,5 +163,164 @@ public class XaBankingAppTest {
             assertEquals( expectedBalanceFrom, FROM_BANK.getBalance( ibanFrom ), Float.MIN_VALUE );
             assertEquals( expectedBalanceTo, TO_BANK.getBalance( ibanTo ), Float.MIN_VALUE );
         }
+    }
+
+    /**
+     * 
+     * Test failure scenario: Transfer amount exceeds source account balance.
+     * Violation of Balance >= 0 constraint
+     */
+    @Test
+    public void transferExceedsSourceBalance() throws SQLException {
+        final String ibanFrom = "CH5367B1", bicFrom = Bank.BANK_X.name();
+        final AbstractOracleXaBank FROM_BANK = Bank.valueOf( bicFrom ).bank;
+
+        final String ibanTo = "CH5367B1", bicTo = Bank.BANK_Y.name();
+        final AbstractOracleXaBank TO_BANK = Bank.BANK_Y.bank;
+
+        final float transferValue = 15000f;
+
+        final float expectedBalanceFrom = FROM_BANK.getBalance( ibanFrom );
+        final float expectedBalanceTo = TO_BANK.getBalance( ibanTo );
+
+        assertFalse( Float.isNaN( expectedBalanceFrom ) );
+        assertFalse( Float.isNaN( expectedBalanceTo ) );
+
+        printTestDescription( "transfer Exceeds Source Balance", ibanFrom, bicFrom, ibanTo, bicTo, transferValue );
+        printBalance( true, ibanFrom, bicFrom, FROM_BANK.getBalance( ibanFrom ) );
+        printBalance( true, ibanTo, bicTo, TO_BANK.getBalance( ibanTo ) );
+
+        try {
+            FROM_BANK.transfer( TO_BANK, ibanFrom, ibanTo, transferValue );
+            throw new AssertionError( "Should have failed" );
+        } catch (RuntimeException e) {
+            System.out.println("Transfer failed as expected" + e.getMessage());
+        } finally {
+            printBalance(false, ibanFrom, bicFrom, expectedBalanceFrom);
+            printBalance(false, ibanTo, bicTo, expectedBalanceTo);
+            System.out.println("Both accounts should remain unchanged.");
+            assertEquals( expectedBalanceFrom, FROM_BANK.getBalance( ibanFrom ), Float.MIN_VALUE );
+            assertEquals( expectedBalanceTo, TO_BANK.getBalance( ibanTo ), Float.MIN_VALUE );
+        }
+
+    }
+    /**
+     * 
+     * Test failure scenario: Transfer amount exceeds destination account capacity.
+     * Balance <= 15000
+     * CH5367B2 has 15000, try to transfer 1 to it 
+     */
+    @Test
+    public void transferExceedsDestinationCapacity() throws SQLException {
+        final String ibanFrom = "CH5367B1", bicFrom = Bank.BANK_X.name();
+        final AbstractOracleXaBank FROM_BANK = Bank.valueOf( bicFrom ).bank;
+
+        final String ibanTo = "CH5367B2", bicTo = Bank.BANK_Y.name();
+        final AbstractOracleXaBank TO_BANK = Bank.BANK_Y.bank;
+
+        final float transferValue = 1f;
+
+        final float expectedBalanceFrom = FROM_BANK.getBalance( ibanFrom );
+        final float expectedBalanceTo = TO_BANK.getBalance( ibanTo );
+        
+        assertFalse( Float.isNaN( expectedBalanceFrom ) );
+        assertFalse( Float.isNaN( expectedBalanceTo ) );
+
+        printTestDescription( "Transfer exceeds destination account capacity", ibanFrom, bicFrom, ibanTo, bicTo, transferValue );
+        printBalance( true, ibanFrom, bicFrom, FROM_BANK.getBalance( ibanFrom ) );
+        printBalance( true, ibanTo, bicTo, TO_BANK.getBalance( ibanTo ) );
+
+        try {
+            FROM_BANK.transfer( TO_BANK, ibanFrom, ibanTo, transferValue );
+            throw new AssertionError( "Should have failed" );
+        } catch (RuntimeException e) {
+            System.out.println("Transfer failed as expected" + e.getMessage());
+        } finally {
+            printBalance(false, ibanFrom, bicFrom, expectedBalanceFrom);
+            printBalance(false, ibanTo, bicTo, expectedBalanceTo);
+            System.out.println("Both accounts should remain unchanged.");
+            assertEquals( expectedBalanceFrom, FROM_BANK.getBalance( ibanFrom ), Float.MIN_VALUE );
+            assertEquals( expectedBalanceTo, TO_BANK.getBalance( ibanTo ), Float.MIN_VALUE );
+        }
+    }
+    /**
+     * 
+     * Test failure scenario: Transfer from non-existent account.
+     * 
+     */
+    @Test
+    public void transferFromNonExistentAccount() throws SQLException {
+        final String ibanFrom = "CH5367B99", bicFrom = Bank.BANK_X.name();
+        final AbstractOracleXaBank FROM_BANK = Bank.valueOf( bicFrom ).bank;
+
+        final String ibanTo = "CH5367B2", bicTo = Bank.BANK_Y.name();
+        final AbstractOracleXaBank TO_BANK = Bank.BANK_Y.bank;
+
+        final float transferValue = 1f;
+        final float expectedBalanceTo = TO_BANK.getBalance( ibanTo );
+
+        printTestDescription( "Transfer from non-existent account", ibanFrom, bicFrom, ibanTo, bicTo, transferValue );
+        printBalance( true, ibanTo, bicTo, TO_BANK.getBalance( ibanTo ) );
+
+        // Avoiding printing complete stack error messages
+        PrintStream originalErr = System.err;
+        // create a temporary, 'empty' output stream
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();   
+        PrintStream nullStream = new PrintStream(baos);
+        try {
+            System.setErr(nullStream);
+            FROM_BANK.transfer( TO_BANK, ibanFrom, ibanTo, transferValue );
+            throw new AssertionError( "Should have failed" );
+
+        } catch (RuntimeException e) {
+            System.out.println("Transfer failed as expected" + e.getMessage());
+        }finally {
+            System.setErr(originalErr);
+        }
+        printBalance(false, ibanTo, bicTo, expectedBalanceTo);
+        System.out.println("Destination account should remain unchanged.");
+        assertEquals( expectedBalanceTo, TO_BANK.getBalance( ibanTo ), Float.MIN_VALUE );
+    }
+
+    /**
+     * 
+     * Test failure scenario: Transfer to non-existent account.
+     * 
+     */
+    @Test
+    public void transferToNonExistentAccount() throws SQLException {
+        final String ibanFrom = "CH5367B1", bicFrom = Bank.BANK_X.name();
+        final AbstractOracleXaBank FROM_BANK = Bank.valueOf( bicFrom ).bank;
+
+        final String ibanTo = "CH5367B99", bicTo = Bank.BANK_Y.name();
+        final AbstractOracleXaBank TO_BANK = Bank.BANK_Y.bank;
+
+        final float transferValue = 1f;
+        
+        final float expectedBalanceFrom = FROM_BANK.getBalance( ibanFrom );
+
+        printTestDescription( "Transfer to non-existent account", ibanFrom, bicFrom, ibanTo, bicTo, transferValue );
+        printBalance( true, ibanFrom, bicFrom, FROM_BANK.getBalance( ibanFrom ) );
+
+        // Avoiding printing complete stack error messages
+        PrintStream originalErr = System.err;
+        // create a temporary, 'empty' output stream
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();   
+        PrintStream nullStream = new PrintStream(baos);
+        try {
+            System.setErr(nullStream);
+            FROM_BANK.transfer( TO_BANK, ibanFrom, ibanTo, transferValue );
+            throw new AssertionError( "Should have failed" );
+
+        } catch (RuntimeException e) {
+            System.out.println("Transfer failed as expected" + e.getMessage());
+        }finally {
+            System.setErr(originalErr);
+        }
+        
+        printBalance(false, ibanFrom, bicFrom, expectedBalanceFrom);
+        System.out.println("Source account should remain unchanged.");
+        assertEquals( expectedBalanceFrom, FROM_BANK.getBalance( ibanFrom ), Float.MIN_VALUE );
+        
     }
 }
